@@ -1,13 +1,11 @@
-require "../spec_helper"
-require "colorize"
-require "../../src/tasks/utils/utils.cr"
-require "../../src/tasks/utils/release_manager.cr"
-require "file_utils"
-require "sam"
+require "spec"
+require "../release_manager.cr"
 
 describe "ReleaseManager" do
   after_all do
-    ReleaseManager::GithubReleaseManager.delete_release("test_version")
+    unless ENV["GITHUB_TOKEN"]?.nil?
+      ReleaseManager::GithubReleaseManager.delete_release("test_version")
+    end
   end
   it "'#ReleaseManager.tag' should return the list of tags on the current branch", tags: ["release"]  do
     (ReleaseManager.tag.size).should be > 0
