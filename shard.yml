@@ -1,0 +1,21 @@
+name: release_manager
+version: 0.1.0
+
+authors:
+  - William Harris <wharris@upscalews.com>
+  - W. Watson <Watson@vulk.coop>
+  - Joshua Darius <Joshua.smith@vulk.coop>
+  - Denver Williams <denver@debian.nz>
+
+crystal: '>= 1.0.0'
+license: MIT
+
+targets:
+  release_manager:
+    main: "release_manager.cr"
+
+dependencies:
+  halite:
+    github: icyleaf/halite
+    version: ~> 0.12.0
+
