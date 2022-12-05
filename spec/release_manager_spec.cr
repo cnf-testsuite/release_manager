@@ -2,9 +2,12 @@ require "spec"
 require "../release_manager.cr"
 
 describe "ReleaseManager" do
+
+  ghrm = ReleaseManager::GithubReleaseManager.new("cnf-testsuite/release_manager")
+
   after_all do
     unless ENV["GITHUB_TOKEN"]?.nil?
-      ReleaseManager::GithubReleaseManager.delete_release("test_version")
+      ghrm.delete_release("test_version")
     end
   end
   it "'#ReleaseManager.tag' should return the list of tags on the current branch", tags: ["release"]  do
@@ -34,7 +37,7 @@ describe "ReleaseManager" do
     if ENV["GITHUB_TOKEN"]?.nil?
       puts "Warning: Set GITHUB_TOKEN to activate release manager tests!".colorize(:red)
     else 
-      ((ReleaseManager::GithubReleaseManager.github_releases.size) > 0).should be_true
+      ((ghrm.github_releases.size) > 0).should be_true
     end
   end
 
@@ -42,7 +45,7 @@ describe "ReleaseManager" do
     if ENV["GITHUB_TOKEN"]?.nil?
       puts "Warning: Set GITHUB_TOKEN to activate release manager tests!".colorize(:red)
     else 
-      found_release, asset = ReleaseManager::GithubReleaseManager.upsert_release("test_version")
+      found_release, asset = ghrm.upsert_release("test_version")
       if asset
         (asset["errors"]?==nil || (asset["errors"]? && asset["errors"][0]["code"]  == "already_exists")).should be_truthy
       else
@@ -52,19 +55,19 @@ describe "ReleaseManager" do
   end
 
   it "'#ReleaseManager::GithubReleaseManager.upsert_release' should return nil if not on a valid version", tags: ["release"]  do
-    found_release, asset = ReleaseManager::GithubReleaseManager.upsert_release("invalid_version")
+    found_release, asset = ghrm.upsert_release("invalid_version")
     (asset).should be_nil
   end
 
-  it "'#ReleaseManager::GithubReleaseManager.delete_release' should delete the release from the found_id", tags: ["release"]  do
+  it "'#ghrm.delete_release' should delete the release from the found_id", tags: ["release"]  do
     if ENV["GITHUB_TOKEN"]?.nil?
       puts "Warning: Set GITHUB_TOKEN to activate release manager tests!".colorize(:red)
     else 
-      found_release, asset = ReleaseManager::GithubReleaseManager.upsert_release("test_version")
+      found_release, asset = ghrm.upsert_release("test_version")
       # wait for upsert to finish
       Log.info {"upsert sleep"}
       sleep 10.0
-      resp_code = ReleaseManager::GithubReleaseManager.delete_release("test_version")
+      resp_code = ghrm.delete_release("test_version")
       resp_code.should eq 204
     end
   end
@@ -84,9 +87,9 @@ describe "ReleaseManager" do
     if ENV["GITHUB_TOKEN"]?.nil?
       puts "Warning: Set GITHUB_TOKEN to activate release manager tests!".colorize(:red)
     else 
-      issues = ReleaseManager.latest_release
+      release = ghrm.latest_release
       # https://github.com/semver/semver/blob/master/semver.md#is-v123-a-semantic-version
-      (issues.match(/^(.|)(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)(?:-(?P<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/)).should_not be_nil
+      (release.match(/^(.|)(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)(?:-(?P<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/)).should_not be_nil
     end
   end
 
@@ -94,9 +97,9 @@ describe "ReleaseManager" do
     if ENV["GITHUB_TOKEN"]?.nil?
       puts "Warning: Set GITHUB_TOKEN to activate release manager tests!".colorize(:red)
     else 
-      issues = ReleaseManager.latest_snapshot
+      snapshot = ghrm.latest_snapshot
       # https://github.com/semver/semver/blob/master/semver.md#is-v123-a-semantic-version
-      (issues.match(/(?i)(main)/)).should_not be_nil
+      (snapshot.match(/(?i)(main)/)).should_not be_nil
     end
   end
 
@@ -105,8 +108,8 @@ describe "ReleaseManager" do
     if ENV["GITHUB_TOKEN"]?.nil?
       puts "Warning: Set GITHUB_TOKEN to activate release manager tests!".colorize(:red)
     else 
-      issues = ReleaseManager.issue_title("#318")
-      (issues.match(/#206 documentation update/)).should_not be_nil
+      title = ghrm.issue_title("#318")
+      (title.match(/#206 documentation update/)).should_not be_nil
     end
   end
 

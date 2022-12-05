@@ -1,19 +1,29 @@
 require "halite"
 require "log"
 
+
+ROOT_URL = "https://api.github.com/repos"
+
 module ReleaseManager 
-  module GithubReleaseManager
-    def self.github_releases : Array(JSON::Any)
+  class GithubReleaseManager
+    def initialize(repo_name : String)
+      @repo_name = repo_name
+    end
+
+    def repo_url
+      "#{ROOT_URL}/#{@repo_name}"
+    end
+
+    def github_releases : Array(JSON::Any)
       existing_releases = Halite.auth("Bearer #{ENV["GITHUB_TOKEN"]}").
         get(
-          "https://api.github.com/repos/cncf/cnf-testsuite/releases",
+          "#{self.repo_url}/releases",
           headers: {Accept: "application/vnd.github.v3+json"}
         )
       JSON.parse(existing_releases.body).as_a
     end 
 
-
-    def self.upsert_release(version=nil) : Tuple((JSON::Any | Nil), (JSON::Any | Nil))
+    def upsert_release(version=nil) : Tuple((JSON::Any | Nil), (JSON::Any | Nil))
       Log.info {"upsert_release"}
       found_release : (JSON::Any | Nil) = nil
       asset : (JSON::Any | Nil) = nil
@@ -70,22 +80,22 @@ module ReleaseManager
       sha_checksum = `sha256sum #{cnf_bin_asset_name}`.split(" ")[0]
 
       Log.info {"upsert_version: #{upsert_version}"}
-      release_resp = ReleaseManager::GithubReleaseManager.github_releases
+      release_resp = self.github_releases
       Log.info {"release_resp size: #{release_resp.size}"}
 
       found_release = release_resp.find {|x| x["tag_name"] == upsert_version} 
       Log.info {"find found_release?: #{found_release}"}
 
       if upsert_version =~ /(?i)(main)/
-        latest_build = ReleaseManager.latest_snapshot
+        latest_build = self.latest_snapshot
       else
-        latest_build = ReleaseManager.latest_release
+        latest_build = self.latest_release
       end
       Log.info {"latest_build: #{latest_build}"}
       issues = ReleaseManager.commit_message_issues(latest_build, "HEAD")
       Log.info {"issues: #{issues}"}
       titles = issues.reduce("") do |acc, x| 
-        acc + "- #{x} - #{ReleaseManager.issue_title(x)}\n"
+        acc + "- #{x} - #{self.issue_title(x)}\n"
       end
       # Log.info {"titles: #{titles}"}
 notes_template = <<-TEMPLATE
@@ -100,7 +110,7 @@ Artifact info:
 
 TEMPLATE
 
-      release_url = "https://api.github.com/repos/cncf/cnf-testsuite/releases"
+      release_url = "#{self.repo_url}/releases"
       unless found_release
         # /repos/:owner/:repo/releases
           # post(release_url, headers: {Accept: "application/vnd.github.v3+json"}, json: { "tag_name" => upsert_version, "draft" => draft, "prerelease" => prerelease, "name" => "#{upsert_version} #{Time.local.to_s("%B, %d %Y")}", "body" => notes_template }) found_release = JSON.parse(found_resp.body)
@@ -161,17 +171,17 @@ TEMPLATE
       {found_release, asset}
     end
 
-    def self.delete_release(version)
+    def delete_release(version)
       # DELETE /repos/:owner/:repo/releases/assets/:asset_id
       # DELETE /repos/:owner/:repo/releases/:release_id
-      release_resp = ReleaseManager::GithubReleaseManager.github_releases
+      release_resp = self.github_releases
       puts "this is the version #{version}"
       found_release = release_resp.find {|x| x["tag_name"] == "#{version}"} 
       puts "this is found_release #{typeof(found_release)}"
       if found_release
         puts "this is found_release id #{found_release["id"]}"
         resp = Halite.auth("Bearer #{ENV["GITHUB_TOKEN"]}").
-          delete("https://api.github.com/repos/cncf/cnf-testsuite/releases/#{found_release["id"]}")
+          delete("#{self.repo_url}/releases/#{found_release["id"]}")
         resp_code = resp.status_code
         Log.info {"resp_code: #{resp_code}"}
       else 
@@ -180,7 +190,43 @@ TEMPLATE
       resp_code
     end 
 
-    #TODO get github secrets and add them to the CI (e.g. travis) secrets list 
+    def latest_release
+      resp = `curl -H "Authorization: Bearer #{ENV["GITHUB_TOKEN"]}" --silent "#{self.repo_url}/releases/latest"`
+      Log.info {"latest_release: #{resp}"}
+      parsed_resp = JSON.parse(resp)
+      parsed_resp["tag_name"]?.not_nil!.to_s
+    end
+
+    def latest_snapshot
+      resp = `curl -H "Authorization: Bearer #{ENV["GITHUB_TOKEN"]}" --silent "#{self.repo_url}/releases"`
+      Log.info {"latest_release: #{resp}"}
+      parsed_resp = JSON.parse(resp)
+      prerelease = parsed_resp.as_a.select{ | x | x["prerelease"]==true && !("#{x["published_at"]?}".empty?) }
+      latest_snapshot = prerelease.sort do |a, b|
+        Log.debug { "a #{a}" }
+        Log.debug { "b #{b}" }
+        if (b["published_at"]? && a["published_at"]?)
+          Time.parse(b["published_at"].as_s,
+                    "%Y-%m-%dT%H:%M:%SZ",
+                    Time::Location::UTC) <=>
+            Time.parse(a["published_at"].as_s,
+                      "%Y-%m-%dT%H:%M:%SZ",
+                      Time::Location::UTC)
+        else
+          0
+        end
+      end
+      Log.debug { "latest_snapshot: #{latest_snapshot}" }
+      latest_snapshot[0]["tag_name"]?.not_nil!.to_s
+    end
+
+    def issue_title(issue_number)
+      pure_issue = issue_number.gsub("#", "")
+      resp = `curl -H "Authorization: Bearer #{ENV["GITHUB_TOKEN"]}" "#{self.repo_url}/issues/#{pure_issue}"`
+      # Log.info {"issue_text: #{resp}"}
+      parsed_resp = JSON.parse(resp)
+      parsed_resp["title"]?.not_nil!.to_s
+    end
   end
   module CompileTimeVersionGenerater
     macro tagged_version
@@ -266,44 +312,6 @@ TEMPLATE
     uniq_issues = commit_messages.scan(/(#[0-9]{1,9})/).not_nil!.map{|x| x[1]}.uniq
     Log.info {"uniq_issues: #{uniq_issues}"}
     uniq_issues.map {|x| x.strip("\n")}
-  end
-
-  def self.latest_release
-    resp = `curl -H "Authorization: Bearer #{ENV["GITHUB_TOKEN"]}" --silent "https://api.github.com/repos/cncf/cnf-testsuite/releases/latest"`
-    Log.info {"latest_release: #{resp}"}
-    parsed_resp = JSON.parse(resp)
-    parsed_resp["tag_name"]?.not_nil!.to_s
-  end
-
-  def self.latest_snapshot
-    resp = `curl -H "Authorization: Bearer #{ENV["GITHUB_TOKEN"]}" --silent "https://api.github.com/repos/cncf/cnf-testsuite/releases"`
-    Log.info {"latest_release: #{resp}"}
-    parsed_resp = JSON.parse(resp)
-    prerelease = parsed_resp.as_a.select{ | x | x["prerelease"]==true && !("#{x["published_at"]?}".empty?) }
-    latest_snapshot = prerelease.sort do |a, b|
-      Log.debug { "a #{a}" }
-      Log.debug { "b #{b}" }
-      if (b["published_at"]? && a["published_at"]?)
-        Time.parse(b["published_at"].as_s,
-                   "%Y-%m-%dT%H:%M:%SZ",
-                   Time::Location::UTC) <=>
-          Time.parse(a["published_at"].as_s,
-                     "%Y-%m-%dT%H:%M:%SZ",
-                     Time::Location::UTC)
-      else
-        0
-      end
-    end
-    Log.debug { "latest_snapshot: #{latest_snapshot}" }
-    latest_snapshot[0]["tag_name"]?.not_nil!.to_s
-  end
-
-  def self.issue_title(issue_number)
-    pure_issue = issue_number.gsub("#", "")
-    resp = `curl -H "Authorization: Bearer #{ENV["GITHUB_TOKEN"]}" "https://api.github.com/repos/cncf/cnf-testsuite/issues/#{pure_issue}"`
-    # Log.info {"issue_text: #{resp}"}
-    parsed_resp = JSON.parse(resp)
-    parsed_resp["title"]?.not_nil!.to_s
   end
 
   def self.detached_head?
