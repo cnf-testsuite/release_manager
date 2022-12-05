@@ -20,5 +20,6 @@ jobs:
         uses: crystal-lang/install-crystal@v1
       - name: Run tests
         run: |
+          git fetch --all --tags --force
           shards install
           LOG_LEVEL=info crystal spec
