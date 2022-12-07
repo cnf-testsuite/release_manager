@@ -29,8 +29,8 @@ describe "ReleaseManager" do
     (ReleaseManager.current_hash).should_not eq("")
   end
 
-  it "'#ReleaseManager.remote_main_branch_hash' should return the current hash as a string", tags: ["release"]  do
-    (ReleaseManager.remote_main_branch_hash).should_not eq("")
+  it "'#ReleaseManager::GithubReleaseManager.remote_main_branch_hash' should return the current hash as a string", tags: ["release"]  do
+    (ghrm.remote_main_branch_hash).should_not eq("")
   end
 
   it "'#ReleaseManager::GithubReleaseManager.github_releases' should return the existing releases", tags: ["release"]  do

@@ -23,6 +23,12 @@ module ReleaseManager
       JSON.parse(existing_releases.body).as_a
     end 
 
+    def remote_main_branch_hash
+      results =  `git ls-remote https://github.com/#{@repo_name}.git main | awk '{ print $1}' | cut -c1-7`.strip
+      Log.info {"remote_main_branch_hash: #{results}"}
+      results.strip("\n")
+    end
+
     def upsert_release(version=nil) : Tuple((JSON::Any | Nil), (JSON::Any | Nil))
       Log.info {"upsert_release"}
       found_release : (JSON::Any | Nil) = nil
@@ -34,7 +40,7 @@ module ReleaseManager
       # cnf_bin_asset_name = "#{cnf_bin_path}"
       cnf_bin_asset_name = "cnf-testsuite"
 
-      if ReleaseManager.remote_main_branch_hash == ReleaseManager.current_hash
+      if self.remote_main_branch_hash == ReleaseManager.current_hash
         upsert_version = upsert_version.sub("HEAD", "main")
       end
       if upsert_version =~ /(?i)(main)/
@@ -267,12 +273,6 @@ TEMPLATE
   def self.current_hash
     results = `git rev-parse --short HEAD`
     Log.info {"current_hash rev-parse: #{results}"}
-    results.strip("\n")
-  end
-
-  def self.remote_main_branch_hash(owner_repo="cncf/cnf-testsuite")
-    results =  `git ls-remote https://github.com/#{owner_repo}.git main | awk '{ print $1}' | cut -c1-7`.strip
-    Log.info {"remote_main_branch_hash: #{results}"}
     results.strip("\n")
   end
 
