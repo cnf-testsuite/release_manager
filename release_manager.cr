@@ -223,7 +223,7 @@ TEMPLATE
 
     def latest_snapshot
       resp = `curl -H "Authorization: Bearer #{ENV["GITHUB_TOKEN"]}" --silent "#{self.repo_url}/releases"`
-      Log.info {"latest_release: #{resp}"}
+      Log.info {"latest_snapshot: #{resp}"}
       parsed_resp = JSON.parse(resp)
       prerelease = parsed_resp.as_a.select{ | x | x["prerelease"]==true && !("#{x["published_at"]?}".empty?) }
       latest_snapshot = prerelease.sort do |a, b|
@@ -247,7 +247,7 @@ TEMPLATE
     def issue_title(issue_number)
       pure_issue = issue_number.gsub("#", "")
       resp = `curl -H "Authorization: Bearer #{ENV["GITHUB_TOKEN"]}" "#{self.repo_url}/issues/#{pure_issue}"`
-      # Log.info {"issue_text: #{resp}"}
+      Log.debug {"issue_resp: #{resp}"}
       parsed_resp = JSON.parse(resp)
       parsed_resp["title"]?.not_nil!.to_s
     end

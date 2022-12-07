@@ -4,6 +4,9 @@ require "../release_manager.cr"
 describe "ReleaseManager" do
 
   ghrm = ReleaseManager::GithubReleaseManager.new("cnf-testsuite/release_manager")
+  
+  # upsert a test release
+  ghrm.upsert_release
 
   after_all do
     unless ENV["GITHUB_TOKEN"]?.nil?
@@ -108,8 +111,8 @@ describe "ReleaseManager" do
     if ENV["GITHUB_TOKEN"]?.nil?
       puts "Warning: Set GITHUB_TOKEN to activate release manager tests!".colorize(:red)
     else 
-      title = ghrm.issue_title("#318")
-      (title.match(/#206 documentation update/)).should_not be_nil
+      title = ghrm.issue_title("#1")
+      (title.match(/#1 test issue/)).should_not be_nil
     end
   end
 
