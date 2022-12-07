@@ -5,6 +5,24 @@ require "log"
 ROOT_URL = "https://api.github.com/repos"
 
 module ReleaseManager 
+  module CompileTimeVersionGenerater
+    macro tagged_version
+      {% current_branch = `git rev-parse --abbrev-ref HEAD`.split("\n")[0].strip %}
+      {% current_hash = `git rev-parse --short HEAD` %}
+      {% current_status = `git status`.split("\n")[0].strip %}
+      {% current_tag = (!`git tag --points-at HEAD`.empty? && `git tag --points-at HEAD`.split("\n")[-2].strip) || `git tag --points-at HEAD` %} 
+      {% puts "current_branch during compile: #{current_branch}" %}
+      {% puts "current_tag during compile: #{current_tag}" %}
+      {% if current_tag.strip == "" %}
+        VERSION = {{current_branch}} + "-#{Time.local.to_s("%Y-%m-%d-%H%M%S")}-{{current_hash.strip}}"
+      {% else %}
+        VERSION = {{current_tag.strip}}
+      {% end %}
+    end
+  end
+  
+  CompileTimeVersionGenerater.tagged_version
+
   class GithubReleaseManager
     def initialize(repo_name : String)
       @repo_name = repo_name
@@ -34,7 +52,7 @@ module ReleaseManager
       found_release : (JSON::Any | Nil) = nil
       asset : (JSON::Any | Nil) = nil
       Log.info {"version: #{version}"}
-      upsert_version = version
+      upsert_version = (version || ReleaseManager::VERSION)
       Log.info {"upsert_version: #{upsert_version}"}
       # cnf_bin_path = "cnf-testsuite"
       # cnf_bin_asset_name = "#{cnf_bin_path}"
@@ -232,21 +250,6 @@ TEMPLATE
       # Log.info {"issue_text: #{resp}"}
       parsed_resp = JSON.parse(resp)
       parsed_resp["title"]?.not_nil!.to_s
-    end
-  end
-  module CompileTimeVersionGenerater
-    macro tagged_version
-      {% current_branch = `git rev-parse --abbrev-ref HEAD`.split("\n")[0].strip %}
-      {% current_hash = `git rev-parse --short HEAD` %}
-      {% current_status = `git status`.split("\n")[0].strip %}
-      {% current_tag = (!`git tag --points-at HEAD`.empty? && `git tag --points-at HEAD`.split("\n")[-2].strip) || `git tag --points-at HEAD` %} 
-      {% puts "current_branch during compile: #{current_branch}" %}
-      {% puts "current_tag during compile: #{current_tag}" %}
-      {% if current_tag.strip == "" %}
-        VERSION = {{current_branch}} + "-#{Time.local.to_s("%Y-%m-%d-%H%M%S")}-{{current_hash.strip}}"
-      {% else %}
-        VERSION = {{current_tag.strip}}
-      {% end %}
     end
   end
 
