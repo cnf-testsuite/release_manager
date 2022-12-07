@@ -24,4 +24,4 @@ jobs:
         run: |
           git fetch --all --tags --force
           shards install
-          LOG_LEVEL=info crystal spec
+          LOG_LEVEL=debug crystal spec
