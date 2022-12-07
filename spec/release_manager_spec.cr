@@ -112,7 +112,7 @@ describe "ReleaseManager" do
       puts "Warning: Set GITHUB_TOKEN to activate release manager tests!".colorize(:red)
     else 
       title = ghrm.issue_title("#1")
-      (title.match(/#1 test issue/)).should_not be_nil
+      (title.match(/test issue/)).should_not be_nil
     end
   end
 
