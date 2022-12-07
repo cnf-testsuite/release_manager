@@ -79,7 +79,7 @@ describe "ReleaseManager" do
     hash = ReleaseManager.current_hash
     #todo dynamically change issues tag so that it is only a few weeks back
     # if this tag is too far in the past, the specs will not run
-    issues = ReleaseManager.commit_message_issues("v0.24.0", hash)
+    issues = ReleaseManager.commit_message_issues("v0.0.1-rm", hash)
     (issues[0].match(/#/)).should_not be_nil
   end
 
