@@ -6,7 +6,9 @@ describe "ReleaseManager" do
   ghrm = ReleaseManager::GithubReleaseManager.new("cnf-testsuite/release_manager")
   
   # upsert a test release
-  ghrm.upsert_release
+  unless ENV["GITHUB_TOKEN"]?.nil?
+    ghrm.upsert_release
+  end
 
   after_all do
     unless ENV["GITHUB_TOKEN"]?.nil?
